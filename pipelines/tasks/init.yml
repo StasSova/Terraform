@@ -1,0 +1,28 @@
+parameters:
+  - name: working_directory
+    type: string
+    default: 'terraform'
+  - name: service_connection
+    type: string
+  - name: resourceGroup
+    type: string
+  - name: storageAccount
+    type: string
+  - name: containerName
+    type: string
+  - name: terraformStateKey
+    type: string
+    default: ''
+  
+steps:     
+  - task: TerraformCLI@0
+    displayName: Terraform init
+    inputs:
+      command: init
+      backendType: azurerm
+      workingDirectory: ${{ parameters.working_directory }}
+      backendServiceArm: ${{ parameters.service_connection }}
+      backendAzureRmResourceGroupName: ${{ parameters.resourceGroup }}
+      backendAzureRmStorageAccountName: ${{ parameters.storageAccount }}
+      backendAzureRmContainerName: ${{ parameters.containerName }}
+      backendAzureRmKey: ${{ parameters.terraformStateKey }}

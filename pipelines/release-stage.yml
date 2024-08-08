@@ -1,0 +1,111 @@
+parameters:
+- name: environment
+  type: string
+- name: project_name
+  type: string
+- name: service_connection
+  type: string
+- name: working_directory
+  type: string
+
+stages:
+- stage: Plan${{ parameters.environment }}
+  displayName: "Terraform plan - ${{ parameters.environment }}"
+
+  variables:
+    - group: vg-iac-marko-${{ parameters.environment }}
+    - group: vg-iac-common-${{ parameters.environment }}
+    
+
+  jobs:
+    - job: TerraformPlan
+      displayName: Terraform Plan
+      steps:
+        # download sources which are published in build step
+        # as we want to be able to deploy a particular version, not the latest main
+        - checkout: none
+        - download: current
+          artifact: sources_directory
+          displayName: Download source directory
+
+        #Check all variables
+        - template: tasks/check_env.yml
+          parameters:
+            resourceGroup: $(tf_terraform_backend_resource_group)
+
+        - template: tasks/init.yml
+          parameters:
+            service_connection: ${{ parameters.service_connection }}
+            resourceGroup: $(tf_terraform_backend_resource_group)
+            storageAccount: $(tf_terraform_backend_storage_account)
+            containerName: $(tf_terraform_backend_storage_container)
+            terraformStateKey: $(tf_terraform_statefile_name)
+            working_directory: ${{ parameters.working_directory }}
+
+        - template: tasks/plan.yml
+          parameters:
+            service_connection: ${{ parameters.service_connection }}
+            working_directory: ${{ parameters.working_directory }}
+            environment: ${{ parameters.environment }}
+
+        - task: CopyFiles@2
+          displayName: Copy plan file
+          inputs:
+            SourceFolder: ${{ parameters.working_directory }}
+            Contents: '*.plan'
+            TargetFolder: $(Build.ArtifactStagingDirectory)
+          condition: succeededOrFailed()
+
+        - task: PublishPipelineArtifact@1
+          displayName: Publish Pipeline Artifact
+          inputs:
+            artifactName: terraformPlan-${{ parameters.environment }}
+            targetPath: $(Build.ArtifactStagingDirectory)
+
+- stage: Apply${{ parameters.environment }}
+  displayName: "Terraform apply - ${{ parameters.environment }}"
+
+  variables:
+    - group: vg-iac-marko-${{ parameters.environment }}
+    - name: artifactName
+      value: terraformPlan-${{ parameters.environment }}
+    
+
+  jobs:
+  - deployment: TerraformApply
+    displayName: Terraform Apply
+    environment: ${{ parameters.environment }}
+    workspace:
+      clean: all
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+            - checkout: self
+              clean: true
+
+            - download: current
+              displayName: Download Terraform Plan
+              artifact: ${{ variables.artifactName }}
+
+            - download: current
+              artifact: sources_directory
+              displayName: Download source directory
+
+            - template: tasks/init.yml
+              parameters:
+                working_directory: ${{ parameters.working_directory }}
+                service_connection: ${{ parameters.service_connection }}
+                resourceGroup: $(TF_TERRAFORM_BACKEND_RESOURCE_GROUP)
+                storageAccount: $(TF_TERRAFORM_BACKEND_STORAGE_ACCOUNT)
+                containerName: $(TF_TERRAFORM_BACKEND_STORAGE_CONTAINER)
+                terraformStateKey: $(TF_TERRAFORM_STATEFILE_NAME)
+            
+            - task: TerraformCLI@0
+              displayName: Terraform apply
+              inputs:
+                command: apply
+                environmentServiceName: ${{ parameters.service_connection }}
+                workingDirectory: ${{ parameters.working_directory }}
+                runAzLogin: true
+                commandOptions: -input=false $(Pipeline.Workspace)/${{ variables.artifactName }}/${{parameters.environment}}-tf.plan

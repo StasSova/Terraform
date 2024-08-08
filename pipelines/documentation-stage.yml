@@ -1,0 +1,53 @@
+parameters:
+  - name: working_directory
+    type: string
+
+stages:
+- stage: Docs${{ parameters.environment }}
+  displayName: "Generate Release notes for ${{ parameters.environment }} Evironment"
+
+  variables:
+    - group: vg-iac-data-${{ parameters.environment }}
+    
+
+  jobs:
+    - job: GenerateReleaseNotes
+      displayName: Generate Release notes
+      steps:
+        # download sources which are published in build step
+        # as we want to be able to deploy a particular version, not the latest main
+        - checkout: none
+        - download: current
+          artifact: sources_directory
+          displayName: Download source directory
+
+        - task: XplatGenerateReleaseNotes@4
+        inputs:
+          outputfile: '$(System.DefaultWorkingDirectory)inline.md'
+          templateLocation: 'File'
+          templatefile: '$(working_directory)/deployhelpers/release-handlebars-template.md'
+          stopOnRedeploy: true
+          dumpPayloadToConsole: true
+          dumpPayloadToFile: true
+          replaceFile: True
+          getParentsAndChildren: False
+          getAllParents: False
+          getIndirectPullRequests: False
+          stopOnError: False
+          considerPartiallySuccessfulReleases: False
+          checkForManuallyLinkedWI: False
+          wiqlFromTarget: 'WorkItems'
+
+        - task: WikiFolderUpdaterTask@2
+        inputs:
+          repo: 'https://CETIM@dev.azure.com/CETIM/Projet%20Smart_Data%20Cetim-Dvigunity/_git/Projet-Smart_Data-Cetim-Dvigunity.wiki'
+          replaceFile: True
+          sourceFolder: '$(System.DefaultWorkingDirectory)'
+          Filter: '**/*.md'
+          message: 'Release note gen'
+          gitname: 'smartdata'
+          gitemail: 'smartdata_noreply@cetim.fr'
+          useAgentToken: true
+          localpath: '$(System.DefaultWorkingDirectory)\repo'
+
+        
