@@ -1,5 +1,5 @@
-#Azure Function App
-variable "function_app_name" {
+# Azure Logic App
+variable "logic_app_name" {
   type        = string
   description = "The name of the Azure Function App for Python"
 }
@@ -19,8 +19,8 @@ variable "tags" {
   description = "Tags to be applied to the resources"
 }
 
-# Azure Function related variables
-variable "asp_fc_name" {
+# Azure App Service Plan
+variable "asp_la_name" {
   type        = string
   description = "The name of the App Service Plan for the Function App"
 }

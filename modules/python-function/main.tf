@@ -8,10 +8,6 @@ resource "azurerm_function_app" "python_function_app" {
   storage_account_access_key = azurerm_storage_account.python_fc_storage.primary_access_key
   version                    = "~4"
 
-  site_config {
-    linux_fx_version = "PYTHON|3.8"
-  }
-
   tags       = var.tags
   depends_on = [azurerm_storage_account.python_fc_storage]
 }
@@ -22,7 +18,7 @@ resource "azurerm_app_service_plan" "python_function_asp" {
   location            = var.location
   resource_group_name = var.resource_group_name
   kind                = "FunctionApp"
-  reserved            = true
+  reserved            = false
 
   sku {
     tier = "Dynamic"
@@ -34,7 +30,7 @@ resource "azurerm_app_service_plan" "python_function_asp" {
 
 # Azure Storage Account
 resource "azurerm_storage_account" "python_fc_storage" {
-  name                     = var.fc_storage_name
+  name                     = var.storage_account_name
   resource_group_name      = var.resource_group_name
   location                 = var.location
   account_tier             = "Standard"
